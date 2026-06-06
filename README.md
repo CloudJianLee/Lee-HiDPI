@@ -1,451 +1,124 @@
 # Lee-HiDPI
 
-Lee-HiDPI is a small macOS menu bar app that helps external displays use clearer HiDPI scaling.
+[English](README_EN.md) | 简体中文
 
-Lee-HiDPI 是一个轻量 macOS 菜单栏工具，用来给外接显示器启用更清晰的 HiDPI 显示效果。它的目标是做成“傻瓜式”工具：选择显示器，点击一个按钮，剩下的交给 App 处理。
+一款简单、原生的 macOS 菜单栏工具，为外接显示器启用更清晰的 HiDPI 缩放。
 
-## Features
+Lee-HiDPI 目前主要针对 **24 英寸 2K/QHD（2560×1440）显示器**设计。选择显示器并点击一次按钮，应用会安装推荐配置，尽量减少需要理解和调整的参数。
 
-- One-click clarity optimization for external displays.
-- Recommended HiDPI mode for 24-inch QHD/2K displays.
-- Automatic Chinese / English UI based on system language.
-- Manual Chinese / English switch inside the app.
-- Safe reset button to remove Lee-HiDPI's display override.
-- Menu bar app with only `Open` and `Quit`.
-- CLI for debugging and advanced users.
-- Built with Swift Package Manager and native AppKit.
+## 下载与安装
 
-## What It Does
+1. 从 [Releases](https://github.com/CloudJianLee/Lee-HiDPI/releases) 下载最新的 `macos-universal.zip`。
+2. 解压后，将 `Lee-HiDPI.app` 移入“应用程序”文件夹。
+3. 首次启动时右键点击 App，选择“打开”。
 
-Many external displays run in a standard 1x mode on macOS. Text can look blurry because the UI resolution and render resolution are the same.
+当前公开构建使用临时签名，尚未经过 Apple Developer ID 签名和公证，因此 macOS 可能显示安全提示。请只从本仓库的 Releases 页面下载。
 
-Lee-HiDPI creates a macOS display override for the selected external monitor so macOS can expose HiDPI modes such as:
+系统要求：
 
-```text
-1920x1080 HiDPI -> 3840x2160 rendered
-2048x1152 HiDPI -> 4096x2304 rendered
-```
-
-For a 24-inch QHD/2K external display, the default recommendation is:
-
-```text
-Best:   1920x1080 HiDPI
-Backup: 2048x1152 HiDPI
-```
-
-## Screenshot
-
-No screenshot is committed yet. After packaging, launch the app with:
-
-```sh
-open dist/Lee-HiDPI.app
-```
-
-## Requirements
-
-- macOS 14 or later
-- Xcode command line tools
-- Swift 6.3 or later
-- External display
-
-## Quick Start
-
-Build and run from source:
-
-```sh
-swift run lee-hidpi
-```
-
-Package as a macOS app:
-
-```sh
-./Scripts/package_app.sh
-open dist/Lee-HiDPI.app
-```
-
-## App Usage
-
-The app is intentionally simple:
-
-1. Choose your external display.
-2. Click `Optimize Clarity` / `一键优化清晰度`.
-3. If macOS asks for administrator permission, approve it.
-4. Reconnect the display or restart macOS if prompted.
-5. Click the button again after reconnecting/restarting.
-
-To undo changes:
-
-1. Choose the external display.
-2. Click `Reset` / `恢复默认`.
-3. Reconnect the display or restart macOS.
-
-## Language
-
-On first launch:
-
-- Chinese system language -> Chinese UI
-- Other system languages -> English UI
-
-The language switch in the app saves your preference with `UserDefaults`.
-
-## CLI
-
-List detected displays:
-
-```sh
-swift run lee-hidpi --list
-```
-
-Apply or prepare the recommended setup for the first external display:
-
-```sh
-swift run lee-hidpi --best
-```
-
-Reset the first external display configuration:
-
-```sh
-swift run lee-hidpi --reset
-```
-
-Export recommended display override files to the user folder:
-
-```sh
-swift run lee-hidpi --export
-```
-
-Export directly to the system override folder:
-
-```sh
-sudo .build/release/lee-hidpi --export --system
-```
-
-## File Locations
-
-User export folder:
-
-```text
-~/Documents/LeeHiDPIOverrides
-```
-
-macOS display override folder:
-
-```text
-/Library/Displays/Contents/Resources/Overrides
-```
-
-Lee-HiDPI only targets the selected external display's vendor/product override file.
-
-## Safety Notes
-
-Display overrides affect how macOS exposes display modes. Lee-HiDPI keeps the UI simple, but the underlying operation still touches system display configuration.
-
-The app is designed to be conservative:
-
-- It does not automatically configure built-in displays.
-- It only writes the selected external display override.
-- Reset removes Lee-HiDPI's override for the selected display.
-- Administrator permission is requested through macOS when needed.
-
-After installing or resetting an override, macOS usually needs one of these:
-
-- reconnect the external display
-- restart macOS
-
-## Project Structure
-
-```text
-Package.swift
-Sources/
-  LeeHiDPICore/
-    DisplayInventory.swift
-    DisplayModeControl.swift
-    DisplayModel.swift
-    DisplayOverridePayload.swift
-    DisplayOverrideStore.swift
-    DisplayRecommendation.swift
-  LeeHiDPIApp/
-    main.swift
-Tests/
-  LeeHiDPICoreTests/
-    HiDPITests.swift
-Scripts/
-  package_app.sh
-```
-
-## Development
-
-Run tests:
-
-```sh
-swift test
-```
-
-Build release binary:
-
-```sh
-swift build -c release --product lee-hidpi
-```
-
-Package app:
-
-```sh
-./Scripts/package_app.sh
-```
-
-The packaged app is generated at:
-
-```text
-dist/Lee-HiDPI.app
-```
-
-## GitHub Publishing Checklist
-
-Before publishing:
-
-```sh
-swift test
-./Scripts/package_app.sh
-```
-
-Recommended first commit:
-
-```sh
-git init
-git add .
-git commit -m "Initial Lee-HiDPI release"
-```
-
-## Current Limitations
-
-- Display names are currently based on CoreGraphics/vendor/product information.
-- Virtual display, DDC brightness, mirroring, and BetterDisplay-style advanced controls are not implemented.
-- HiDPI override behavior can vary across macOS versions and display firmware.
-- Some changes require reconnecting the display or restarting macOS.
-
-## License
-
-No license has been selected yet. Add a `LICENSE` file before public release if you want others to reuse or contribute to the code.
-
----
-
-# 中文说明
-
-Lee-HiDPI 是一个轻量级 macOS 菜单栏 App，用来帮助外接显示器启用更清晰的 HiDPI 缩放模式。
-
-它的设计目标是尽量简单：选择外接显示器，点击一次按钮，App 自动处理推荐配置。适合不想研究复杂显示参数、只想让文字更清晰的用户。
-
-## 功能特性
-
-- 外接显示器一键优化清晰度。
-- 针对 24 寸 QHD/2K 显示器提供推荐 HiDPI 配置。
-- 首次启动自动检测系统语言：中文系统显示中文，其它系统显示英文。
-- App 内可手动切换中文 / English。
-- 提供恢复默认功能，移除 Lee-HiDPI 写入的显示器配置。
-- 菜单栏右键只保留 `打开` 和 `退出`。
-- 提供命令行工具，方便调试和高级用户使用。
-- 使用 Swift Package Manager 和原生 AppKit 开发。
-
-## 它解决什么问题
-
-很多普通外接显示器在 macOS 上默认运行在标准 1x 模式。此时界面分辨率和渲染分辨率一致，文字可能看起来发虚、不够锐利。
-
-Lee-HiDPI 会为选中的外接显示器生成 macOS display override 配置，让系统暴露 HiDPI 模式，例如：
-
-```text
-1920x1080 HiDPI -> 3840x2160 渲染
-2048x1152 HiDPI -> 4096x2304 渲染
-```
-
-对于 24 寸 QHD/2K 外接显示器，默认推荐：
-
-```text
-最佳：1920x1080 HiDPI
-备用：2048x1152 HiDPI
-```
-
-## 系统要求
-
-- macOS 14 或更高版本
-- Xcode Command Line Tools
-- Swift 6.3 或更高版本
+- macOS 14 Sonoma 或更高版本
+- Apple Silicon 或 Intel Mac
 - 一台外接显示器
 
-## 快速开始
+## 使用方法
 
-从源码运行：
+1. 打开 Lee-HiDPI，选择需要优化的外接显示器。
+2. 点击“**一键优化清晰度**”。
+3. 按 macOS 提示输入管理员密码。
+4. 如果配置刚刚安装，请重新连接显示器或重启 Mac。
+5. 再次点击“一键优化清晰度”，应用推荐的显示模式。
 
-```sh
-swift run lee-hidpi
+菜单栏图标支持双击打开主窗口；右键菜单只保留“打开”和“退出”。
+
+需要撤销时，选择对应显示器并点击“**恢复默认**”，然后重新连接显示器或重启 Mac。
+
+## 它做了什么
+
+普通外接显示器在 macOS 上可能只提供 1× 模式，导致文字边缘不够清晰。Lee-HiDPI 会为选中的外接显示器创建系统 display override，使 macOS 可以识别对应的 HiDPI 模式。
+
+对 24 英寸 2K/QHD 显示器，当前推荐：
+
+```text
+首选：1920×1080 HiDPI（3840×2160 渲染）
+备用：2048×1152 HiDPI（4096×2304 渲染）
 ```
 
-打包成 macOS App：
-
-```sh
-./Scripts/package_app.sh
-open dist/Lee-HiDPI.app
-```
-
-## App 使用方式
-
-Lee-HiDPI 的界面刻意保持简单：
-
-1. 选择外接显示器。
-2. 点击 `一键优化清晰度`。
-3. 如果 macOS 弹出管理员授权窗口，请确认。
-4. 如果 App 提示需要重新连接显示器或重启 macOS，请按提示操作。
-5. 重新连接或重启后，再点击一次 `一键优化清晰度`。
-
-恢复默认：
-
-1. 选择外接显示器。
-2. 点击 `恢复默认`。
-3. 重新连接显示器或重启 macOS。
+应用不会修改 Mac 内建显示器，也不会安装常驻后台服务。写入系统配置时，授权由 macOS 管理员确认窗口完成。
 
 ## 语言
 
-首次启动时：
+首次启动会根据系统首选语言自动选择界面：
 
-- 系统语言是中文：默认显示中文界面。
-- 系统语言不是中文：默认显示英文界面。
+- 中文系统：简体中文
+- 其他语言：English
 
-你也可以在 App 内使用 `中文 / EN` 切换语言。选择会保存到 `UserDefaults`，下次打开会自动沿用。
+也可以在应用内随时切换，选择会保存在本机。
 
-## 命令行用法
+## 重要说明
 
-列出当前检测到的显示器：
+- HiDPI 效果取决于 macOS 版本、显示器固件、连接方式和显卡能力。
+- 安装或移除 display override 后，通常需要重新连接显示器或重启系统。
+- “恢复默认”只删除 Lee-HiDPI 为当前所选显示器管理的配置文件。
+- 当前产品定位是 24 英寸 2K 显示器的一键优化工具，并非 BetterDisplay 的完整替代品。
+- 尚未提供虚拟显示器、DDC 亮度、镜像和高级分辨率编辑功能。
+
+遇到问题时，请在 [Issues](https://github.com/CloudJianLee/Lee-HiDPI/issues) 中附上 macOS 版本、Mac 型号、显示器型号和连接方式。
+
+## 从源码构建
+
+需要 Xcode Command Line Tools 和 Swift 6.3 或更高版本。
+
+```sh
+git clone https://github.com/CloudJianLee/Lee-HiDPI.git
+cd Lee-HiDPI
+swift test
+./Scripts/package_app.sh
+open dist/Lee-HiDPI.app
+```
+
+打包脚本默认：
+
+- 运行完整测试
+- 构建 Universal 2（`arm64` + `x86_64`）
+- 生成标准 App Bundle
+- 使用临时签名并验证签名
+- 校验 `Info.plist` 和二进制架构
+
+生成 GitHub Release 附件：
+
+```sh
+./Scripts/package_app.sh --archive
+```
+
+版本号统一维护在 [`Config/Version.env`](Config/Version.env)。如有 Developer ID 证书，可指定正式签名身份：
+
+```sh
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+  ./Scripts/package_app.sh --archive
+```
+
+## 命令行
 
 ```sh
 swift run lee-hidpi --list
-```
-
-为第一台外接显示器应用或准备推荐配置：
-
-```sh
 swift run lee-hidpi --best
-```
-
-重置第一台外接显示器配置：
-
-```sh
 swift run lee-hidpi --reset
-```
-
-导出推荐配置到用户目录：
-
-```sh
 swift run lee-hidpi --export
 ```
 
-直接导出到系统 override 目录：
-
-```sh
-sudo .build/release/lee-hidpi --export --system
-```
-
-## 文件位置
-
-用户导出目录：
-
-```text
-~/Documents/LeeHiDPIOverrides
-```
-
-macOS 显示器 override 目录：
-
-```text
-/Library/Displays/Contents/Resources/Overrides
-```
-
-Lee-HiDPI 只会针对选中的外接显示器 vendor/product 配置文件进行操作。
-
-## 安全说明
-
-显示器 override 会影响 macOS 暴露哪些显示模式。Lee-HiDPI 的界面虽然简单，但底层仍然涉及系统显示配置。
-
-Lee-HiDPI 的安全策略：
-
-- 不自动配置内建显示器。
-- 只写入选中的外接显示器配置。
-- `恢复默认` 只移除 Lee-HiDPI 针对选中显示器写入的配置。
-- 需要写入系统目录时，通过 macOS 管理员授权弹窗完成。
-
-安装或重置配置后，macOS 通常需要：
-
-- 重新连接外接显示器，或
-- 重启 macOS
+命令行功能主要用于开发和诊断。普通用户直接使用 App 即可。
 
 ## 项目结构
 
 ```text
-Package.swift
-Sources/
-  LeeHiDPICore/
-    DisplayInventory.swift
-    DisplayModeControl.swift
-    DisplayModel.swift
-    DisplayOverridePayload.swift
-    DisplayOverrideStore.swift
-    DisplayRecommendation.swift
-  LeeHiDPIApp/
-    main.swift
-Tests/
-  LeeHiDPICoreTests/
-    HiDPITests.swift
-Scripts/
-  package_app.sh
+Config/                 版本与 Bundle 配置
+Resources/              App Bundle 元数据
+Scripts/                构建与打包脚本
+Sources/LeeHiDPICore/   显示器检测、推荐和 override 逻辑
+Sources/LeeHiDPIApp/    AppKit 菜单栏应用与 CLI
+Tests/                  Swift Testing 测试
 ```
-
-## 开发
-
-运行测试：
-
-```sh
-swift test
-```
-
-构建 release 命令行工具：
-
-```sh
-swift build -c release --product lee-hidpi
-```
-
-打包 App：
-
-```sh
-./Scripts/package_app.sh
-```
-
-打包结果：
-
-```text
-dist/Lee-HiDPI.app
-```
-
-## 发布到 GitHub 前
-
-建议先运行：
-
-```sh
-swift test
-./Scripts/package_app.sh
-```
-
-首次提交示例：
-
-```sh
-git init
-git add .
-git commit -m "Initial Lee-HiDPI release"
-```
-
-## 当前限制
-
-- 显示器名称目前基于 CoreGraphics / vendor / product 信息生成。
-- 尚未实现虚拟显示器、DDC 亮度控制、镜像、BetterDisplay 风格的高级控制等功能。
-- 不同 macOS 版本、不同显示器固件对 display override 的支持可能不同。
-- 某些配置变更需要重新连接显示器或重启 macOS。
 
 ## 许可证
 
-目前尚未选择开源许可证。如果要公开发布并允许他人复用或贡献代码，建议添加 `LICENSE` 文件。
+本项目采用 [MIT License](LICENSE) 开源。

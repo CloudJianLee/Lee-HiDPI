@@ -3,49 +3,128 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Lee-HiDPI"
+PRODUCT_NAME="lee-hidpi"
 DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$DIST_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
+VERSION_FILE="$ROOT_DIR/Config/Version.env"
+PLIST_TEMPLATE="$ROOT_DIR/Resources/Info.plist"
+ARCHIVE=false
+SKIP_TESTS=false
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+
+usage() {
+  cat <<EOF
+Usage: ./Scripts/package_app.sh [options]
+
+Options:
+  --archive      Also create a versioned ZIP and SHA-256 checksum.
+  --skip-tests   Skip the Swift test suite.
+  -h, --help     Show this help.
+
+Environment:
+  SIGN_IDENTITY  codesign identity. Defaults to "-" (ad-hoc signing).
+EOF
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --archive)
+      ARCHIVE=true
+      ;;
+    --skip-tests)
+      SKIP_TESTS=true
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+for command in swift plutil codesign lipo ditto shasum; do
+  if ! command -v "$command" >/dev/null 2>&1; then
+    echo "Required command not found: $command" >&2
+    exit 1
+  fi
+done
+
+if [[ ! -f "$VERSION_FILE" || ! -f "$PLIST_TEMPLATE" ]]; then
+  echo "Missing version configuration or Info.plist template." >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+source "$VERSION_FILE"
+
+: "${MARKETING_VERSION:?MARKETING_VERSION is required}"
+: "${BUILD_NUMBER:?BUILD_NUMBER is required}"
+: "${BUNDLE_IDENTIFIER:?BUNDLE_IDENTIFIER is required}"
+: "${MINIMUM_MACOS_VERSION:?MINIMUM_MACOS_VERSION is required}"
 
 cd "$ROOT_DIR"
-swift build -c release --product lee-hidpi
+
+if [[ "$SKIP_TESTS" == false ]]; then
+  swift test
+fi
+
+swift build \
+  -c release \
+  --product "$PRODUCT_NAME" \
+  --arch arm64 \
+  --arch x86_64
+
+BIN_DIR="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
+BINARY_PATH="$BIN_DIR/$PRODUCT_NAME"
+
+if [[ ! -x "$BINARY_PATH" ]]; then
+  echo "Release binary not found: $BINARY_PATH" >&2
+  exit 1
+fi
+
+ARCHITECTURES="$(lipo -archs "$BINARY_PATH")"
+if [[ "$ARCHITECTURES" != *arm64* || "$ARCHITECTURES" != *x86_64* ]]; then
+  echo "Expected a Universal 2 binary, found: $ARCHITECTURES" >&2
+  exit 1
+fi
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR"
-
-cp "$ROOT_DIR/.build/release/lee-hidpi" "$MACOS_DIR/$APP_NAME"
+cp "$BINARY_PATH" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
+cp "$PLIST_TEMPLATE" "$CONTENTS_DIR/Info.plist"
 
-cat > "$CONTENTS_DIR/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleDevelopmentRegion</key>
-  <string>en</string>
-  <key>CFBundleExecutable</key>
-  <string>$APP_NAME</string>
-  <key>CFBundleIdentifier</key>
-  <string>com.lee.leehidpi</string>
-  <key>CFBundleInfoDictionaryVersion</key>
-  <string>6.0</string>
-  <key>CFBundleName</key>
-  <string>$APP_NAME</string>
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>CFBundleShortVersionString</key>
-  <string>0.1.1</string>
-  <key>CFBundleVersion</key>
-  <string>2</string>
-  <key>LSMinimumSystemVersion</key>
-  <string>14.0</string>
-  <key>LSUIElement</key>
-  <true/>
-  <key>NSHighResolutionCapable</key>
-  <true/>
-</dict>
-</plist>
-PLIST
+plutil -replace CFBundleIdentifier -string "$BUNDLE_IDENTIFIER" "$CONTENTS_DIR/Info.plist"
+plutil -replace CFBundleShortVersionString -string "$MARKETING_VERSION" "$CONTENTS_DIR/Info.plist"
+plutil -replace CFBundleVersion -string "$BUILD_NUMBER" "$CONTENTS_DIR/Info.plist"
+plutil -replace LSMinimumSystemVersion -string "$MINIMUM_MACOS_VERSION" "$CONTENTS_DIR/Info.plist"
+plutil -lint "$CONTENTS_DIR/Info.plist"
 
-echo "Packaged $APP_DIR"
+codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR"
+codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+
+echo "Packaged: $APP_DIR"
+echo "Version:  $MARKETING_VERSION ($BUILD_NUMBER)"
+echo "Archs:    $ARCHITECTURES"
+
+if [[ "$ARCHIVE" == true ]]; then
+  ARCHIVE_PATH="$DIST_DIR/$APP_NAME-v$MARKETING_VERSION-macos-universal.zip"
+  CHECKSUM_PATH="$ARCHIVE_PATH.sha256"
+
+  rm -f "$ARCHIVE_PATH" "$CHECKSUM_PATH"
+  ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ARCHIVE_PATH"
+  (
+    cd "$DIST_DIR"
+    shasum -a 256 "$(basename "$ARCHIVE_PATH")" > "$(basename "$CHECKSUM_PATH")"
+  )
+
+  echo "Archive:  $ARCHIVE_PATH"
+  echo "Checksum: $CHECKSUM_PATH"
+fi
