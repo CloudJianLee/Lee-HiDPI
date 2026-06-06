@@ -19,7 +19,7 @@ usage() {
 Usage: ./Scripts/package_app.sh [options]
 
 Options:
-  --archive      Also create a versioned ZIP and SHA-256 checksum.
+  --archive      Also create a versioned DMG and SHA-256 checksum.
   --skip-tests   Skip the Swift test suite.
   -h, --help     Show this help.
 
@@ -49,7 +49,7 @@ while (($# > 0)); do
   shift
 done
 
-for command in swift plutil codesign lipo ditto shasum; do
+for command in swift plutil codesign lipo hdiutil shasum; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Required command not found: $command" >&2
     exit 1
@@ -115,16 +115,30 @@ echo "Version:  $MARKETING_VERSION ($BUILD_NUMBER)"
 echo "Archs:    $ARCHITECTURES"
 
 if [[ "$ARCHIVE" == true ]]; then
-  ARCHIVE_PATH="$DIST_DIR/$APP_NAME-v$MARKETING_VERSION-macos-universal.zip"
-  CHECKSUM_PATH="$ARCHIVE_PATH.sha256"
+  DMG_PATH="$DIST_DIR/$APP_NAME-v$MARKETING_VERSION-macos-universal.dmg"
+  CHECKSUM_PATH="$DMG_PATH.sha256"
+  DMG_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/lee-hidpi-dmg.XXXXXX")"
 
-  rm -f "$ARCHIVE_PATH" "$CHECKSUM_PATH"
-  ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ARCHIVE_PATH"
+  cleanup() {
+    rm -rf "$DMG_ROOT"
+  }
+  trap cleanup EXIT
+
+  cp -R "$APP_DIR" "$DMG_ROOT/"
+  ln -s /Applications "$DMG_ROOT/Applications"
+
+  rm -f "$DMG_PATH" "$CHECKSUM_PATH"
+  hdiutil create \
+    -volname "$APP_NAME" \
+    -srcfolder "$DMG_ROOT" \
+    -ov \
+    -format UDZO \
+    "$DMG_PATH"
   (
     cd "$DIST_DIR"
-    shasum -a 256 "$(basename "$ARCHIVE_PATH")" > "$(basename "$CHECKSUM_PATH")"
+    shasum -a 256 "$(basename "$DMG_PATH")" > "$(basename "$CHECKSUM_PATH")"
   )
 
-  echo "Archive:  $ARCHIVE_PATH"
+  echo "Disk image: $DMG_PATH"
   echo "Checksum: $CHECKSUM_PATH"
 fi

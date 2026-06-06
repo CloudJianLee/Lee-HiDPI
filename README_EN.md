@@ -8,8 +8,8 @@ Lee-HiDPI is currently designed primarily for **24-inch 2K/QHD (2560×1440) disp
 
 ## Download and Install
 
-1. Download the latest `macos-universal.zip` from [Releases](https://github.com/CloudJianLee/Lee-HiDPI/releases).
-2. Extract it and move `Lee-HiDPI.app` to Applications.
+1. Download the latest `.dmg` from [Releases](https://github.com/CloudJianLee/Lee-HiDPI/releases).
+2. Open the DMG and drag `Lee-HiDPI.app` to **Applications**.
 3. On first launch, Control-click the app and choose **Open**.
 
 Public builds currently use ad-hoc signing and are not yet notarized with Apple. macOS may therefore show a security warning. Only download builds from this repository's Releases page.
@@ -78,7 +78,7 @@ open dist/Lee-HiDPI.app
 
 The packaging script runs the test suite, builds a Universal 2 binary (`arm64` + `x86_64`), creates and validates the app bundle, and applies an ad-hoc signature.
 
-Create versioned GitHub Release assets with:
+Create an installable DMG and its SHA-256 checksum with:
 
 ```sh
 ./Scripts/package_app.sh --archive

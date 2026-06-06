@@ -8,8 +8,8 @@ Lee-HiDPI 目前主要针对 **24 英寸 2K/QHD（2560×1440）显示器**设计
 
 ## 下载与安装
 
-1. 从 [Releases](https://github.com/CloudJianLee/Lee-HiDPI/releases) 下载最新的 `macos-universal.zip`。
-2. 解压后，将 `Lee-HiDPI.app` 移入“应用程序”文件夹。
+1. 从 [Releases](https://github.com/CloudJianLee/Lee-HiDPI/releases) 下载最新的 `.dmg`。
+2. 双击打开 DMG，将 `Lee-HiDPI.app` 拖入“Applications / 应用程序”。
 3. 首次启动时右键点击 App，选择“打开”。
 
 当前公开构建使用临时签名，尚未经过 Apple Developer ID 签名和公证，因此 macOS 可能显示安全提示。请只从本仓库的 Releases 页面下载。
@@ -84,7 +84,7 @@ open dist/Lee-HiDPI.app
 - 使用临时签名并验证签名
 - 校验 `Info.plist` 和二进制架构
 
-生成 GitHub Release 附件：
+生成可直接安装的 DMG 和 SHA-256 校验文件：
 
 ```sh
 ./Scripts/package_app.sh --archive
