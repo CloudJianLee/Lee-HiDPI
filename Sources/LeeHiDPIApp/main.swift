@@ -54,7 +54,8 @@ struct AppStrings {
     var optimizeButton: String { text("一键优化清晰度", "Optimize Clarity") }
     var resetButton: String { text("恢复默认", "Reset") }
     var noDisplay: String { text("未选择显示器", "No display selected") }
-    var clearMode: String { text("已处于清晰模式", "Clarity mode is active") }
+    var clearMode: String { text("已处于最佳清晰模式", "Recommended clarity mode is active") }
+    var otherHiDPIMode: String { text("当前是 HiDPI，但不是最佳配置", "HiDPI is active, but not the recommended mode") }
     var blurryMode: String { text("当前文字可能发虚", "Text may look blurry") }
     var builtinDisplayNeedsExternal: String { text("内建显示器不需要配置；请先选择外接显示器。", "Built-in displays do not need setup. Select an external display first.") }
     var builtinDisplayNoReset: String { text("内建显示器不需要重置。", "Built-in displays do not need reset.") }
@@ -87,6 +88,9 @@ struct AppStrings {
     var notHiDPIPrompt: String {
         text("点击上方按钮自动处理；需要权限时系统会弹窗。", "Click the button above; macOS will ask for permission if needed.")
     }
+    var otherHiDPIPrompt: String {
+        text("显示器已启用 HiDPI，但分辨率不是推荐值。点击优化可恢复最佳配置。", "HiDPI is active at a different resolution. Click Optimize to restore the recommended mode.")
+    }
     var alreadyClearPrompt: String { text("已经处于清晰模式。", "Already in clarity mode.") }
     func detail(current: String, target: String) -> String {
         text("当前：\(current)  ·  推荐：\(target)", "Current: \(current)  ·  Recommended: \(target)")
@@ -94,8 +98,11 @@ struct AppStrings {
     func displayKind(isBuiltin: Bool) -> String {
         isBuiltin ? text("内建", "Built-in") : text("外接", "External")
     }
-    func displayState(isHiDPI: Bool) -> String {
-        isHiDPI ? "HiDPI" : text("标准", "Standard")
+    func displayState(isOptimal: Bool, isHiDPI: Bool) -> String {
+        if isOptimal {
+            return text("最佳", "Optimal")
+        }
+        return isHiDPI ? "HiDPI" : text("标准", "Standard")
     }
     func modeDescription(_ mode: HiDPIMode) -> String {
         text("\(mode.logicalPoints) HiDPI（\(mode.backingPixels) 渲染）", "\(mode.logicalPoints) HiDPI (\(mode.backingPixels) rendered)")
@@ -292,13 +299,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     static var shared: AppDelegate?
 
     private var statusItem: NSStatusItem?
+    private var statusMenu = NSMenu()
     private var windowController: MainWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = "HiDPI"
         item.button?.target = self
-        item.button?.action = #selector(toggleWindow)
+        item.button?.action = #selector(statusItemClicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem = item
         rebuildMenu()
 
@@ -312,13 +321,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: strings.menuQuit, action: #selector(quit), keyEquivalent: "q"))
         menu.items.forEach { $0.target = self }
-        statusItem?.menu = menu
+        statusMenu = menu
     }
 
-    @objc private func toggleWindow() {
-        if windowController?.window?.isVisible == true {
-            windowController?.window?.orderOut(nil)
-        } else {
+    @objc private func statusItemClicked() {
+        guard let event = NSApplication.shared.currentEvent else {
+            return
+        }
+
+        if event.type == .rightMouseUp {
+            statusItem?.menu = statusMenu
+            statusItem?.button?.performClick(nil)
+            statusItem?.menu = nil
+        } else if event.type == .leftMouseUp, event.clickCount == 2 {
             showWindow()
         }
     }
@@ -328,6 +343,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             windowController = MainWindowController()
         }
         windowController?.showWindow(nil)
+        windowController?.centerOnSelectedDisplay()
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
@@ -375,11 +391,86 @@ final class MainWindowController: NSWindowController {
         window.center()
         super.init(window: window)
         buildContent()
+        startObservingDisplayChanges()
         refresh()
     }
 
     required init?(coder: NSCoder) {
         nil
+    }
+
+    private func startObservingDisplayChanges() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(systemDisplayStateChanged(_:)),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(systemDisplayStateChanged(_:)),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDisplayStateChanged(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func systemDisplayStateChanged(_ notification: Notification) {
+        NSObject.cancelPreviousPerformRequests(
+            withTarget: self,
+            selector: #selector(refreshAndRecenter),
+            object: nil
+        )
+        perform(#selector(refreshAndRecenter), with: nil, afterDelay: 1)
+    }
+
+    @objc private func refreshAndRecenter() {
+        refresh()
+        centerOnSelectedDisplay()
+    }
+
+    func centerOnSelectedDisplay() {
+        guard let window else {
+            return
+        }
+
+        let targetScreen = selectedDisplay.flatMap { display in
+            NSScreen.screens.first { screen in
+                guard let number = screen.deviceDescription[
+                    NSDeviceDescriptionKey("NSScreenNumber")
+                ] as? NSNumber else {
+                    return false
+                }
+                return number.uint32Value == display.displayID
+            }
+        } ?? window.screen ?? NSScreen.main
+
+        guard let visibleFrame = targetScreen?.visibleFrame else {
+            window.center()
+            return
+        }
+
+        let frame = window.frame
+        let origin = NSPoint(
+            x: visibleFrame.midX - frame.width / 2,
+            y: visibleFrame.midY - frame.height / 2
+        )
+        window.setFrameOrigin(origin)
+    }
+
+    private func scheduleRecenterAfterModeChange() {
+        NSObject.cancelPreviousPerformRequests(
+            withTarget: self,
+            selector: #selector(refreshAndRecenter),
+            object: nil
+        )
+        perform(#selector(refreshAndRecenter), with: nil, afterDelay: 0.5)
+        perform(#selector(refreshAndRecenter), with: nil, afterDelay: 1.5)
     }
 
     private func buildContent() {
@@ -566,6 +657,7 @@ final class MainWindowController: NSWindowController {
 
     @objc private func displaySelectionChanged() {
         updatePanel(message: nil)
+        centerOnSelectedDisplay()
     }
 
     @objc private func languageChanged() {
@@ -613,6 +705,7 @@ final class MainWindowController: NSWindowController {
                 try modeController.apply(exposedMode, to: display)
                 refresh()
                 updatePanel(message: strings.appliedMode(exposedMode.description))
+                scheduleRecenterAfterModeChange()
             } catch {
                 updatePanel(message: strings.applyFailed(error.localizedDescription))
             }
@@ -689,8 +782,11 @@ final class MainWindowController: NSWindowController {
         }
 
         let strings = AppStrings.current
-        if display.isCurrentlyHiDPI {
+        let isOptimal = DisplayRecommendationEngine.isRecommendedModeActive(for: display)
+        if isOptimal {
             statusView.configure(text: strings.clearMode, style: .success)
+        } else if display.isCurrentlyHiDPI {
+            statusView.configure(text: strings.otherHiDPIMode, style: .warning)
         } else {
             statusView.configure(text: strings.blurryMode, style: .warning)
         }
@@ -710,17 +806,23 @@ final class MainWindowController: NSWindowController {
         updateStatus()
         if let message {
             operationField.stringValue = message
-        } else if selectedDisplay?.isCurrentlyHiDPI == false {
-            operationField.stringValue = strings.notHiDPIPrompt
-        } else {
+        } else if let display = selectedDisplay,
+                  DisplayRecommendationEngine.isRecommendedModeActive(for: display) {
             operationField.stringValue = strings.alreadyClearPrompt
+        } else if selectedDisplay?.isCurrentlyHiDPI == true {
+            operationField.stringValue = strings.otherHiDPIPrompt
+        } else {
+            operationField.stringValue = strings.notHiDPIPrompt
         }
     }
 
     private func displayMenuTitle(for display: DisplayDescriptor) -> String {
         let strings = AppStrings.current
         let kind = strings.displayKind(isBuiltin: display.isBuiltin)
-        let state = strings.displayState(isHiDPI: display.isCurrentlyHiDPI)
+        let state = strings.displayState(
+            isOptimal: DisplayRecommendationEngine.isRecommendedModeActive(for: display),
+            isHiDPI: display.isCurrentlyHiDPI
+        )
         return "\(display.name) · \(kind) · \(state)"
     }
 

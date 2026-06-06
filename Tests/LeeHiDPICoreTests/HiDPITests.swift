@@ -49,6 +49,31 @@ import Testing
     #expect(mode?.logicalPoints == PixelSize(width: 2560, height: 1440))
 }
 
+@Test func recommendedStateRequiresExactLogicalAndBackingMode() {
+    let optimal = DisplayDescriptor(
+        displayID: 2,
+        name: "QHD External",
+        nativePixels: PixelSize(width: 3840, height: 2160),
+        logicalPoints: PixelSize(width: 1920, height: 1080)
+    )
+    let otherHiDPI = DisplayDescriptor(
+        displayID: 2,
+        name: "QHD External",
+        nativePixels: PixelSize(width: 4096, height: 2304),
+        logicalPoints: PixelSize(width: 2048, height: 1152)
+    )
+    let standard = DisplayDescriptor(
+        displayID: 2,
+        name: "QHD External",
+        nativePixels: PixelSize(width: 2560, height: 1440),
+        logicalPoints: PixelSize(width: 2560, height: 1440)
+    )
+
+    #expect(DisplayRecommendationEngine.isRecommendedModeActive(for: optimal))
+    #expect(!DisplayRecommendationEngine.isRecommendedModeActive(for: otherHiDPI))
+    #expect(!DisplayRecommendationEngine.isRecommendedModeActive(for: standard))
+}
+
 @Test func displayOverrideEncodesBackingResolutionAsBigEndianData() throws {
     let mode = HiDPIMode(logicalPoints: PixelSize(width: 1920, height: 1080))
     let payload = DisplayOverridePayload(

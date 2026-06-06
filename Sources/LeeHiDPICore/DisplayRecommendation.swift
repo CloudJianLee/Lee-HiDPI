@@ -15,6 +15,16 @@ public struct RecommendedDisplayConfiguration: Equatable, Sendable {
 }
 
 public enum DisplayRecommendationEngine {
+    public static func isRecommendedModeActive(for display: DisplayDescriptor) -> Bool {
+        guard let recommendation = recommendedConfiguration(for: display),
+              let logicalPoints = display.logicalPoints else {
+            return false
+        }
+
+        return logicalPoints == recommendation.primary.logicalPoints
+            && display.nativePixels == recommendation.primary.backingPixels
+    }
+
     public static func recommendedConfiguration(for display: DisplayDescriptor) -> RecommendedDisplayConfiguration? {
         let native = display.nativePixels
         let aspect = native.aspectRatio
