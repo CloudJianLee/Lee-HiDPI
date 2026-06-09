@@ -8,8 +8,10 @@ DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$DIST_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
+APP_RESOURCES_DIR="$CONTENTS_DIR/Resources"
 VERSION_FILE="$ROOT_DIR/Config/Version.env"
 PLIST_TEMPLATE="$ROOT_DIR/Resources/Info.plist"
+ICON_FILE="$ROOT_DIR/Resources/AppIcon.icns"
 ARCHIVE=false
 SKIP_TESTS=false
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
@@ -56,8 +58,8 @@ for command in swift plutil codesign lipo hdiutil shasum; do
   fi
 done
 
-if [[ ! -f "$VERSION_FILE" || ! -f "$PLIST_TEMPLATE" ]]; then
-  echo "Missing version configuration or Info.plist template." >&2
+if [[ ! -f "$VERSION_FILE" || ! -f "$PLIST_TEMPLATE" || ! -f "$ICON_FILE" ]]; then
+  echo "Missing version configuration, Info.plist template, or app icon." >&2
   exit 1
 fi
 
@@ -96,10 +98,11 @@ if [[ "$ARCHITECTURES" != *arm64* || "$ARCHITECTURES" != *x86_64* ]]; then
 fi
 
 rm -rf "$APP_DIR"
-mkdir -p "$MACOS_DIR"
+mkdir -p "$MACOS_DIR" "$APP_RESOURCES_DIR"
 cp "$BINARY_PATH" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 cp "$PLIST_TEMPLATE" "$CONTENTS_DIR/Info.plist"
+cp "$ICON_FILE" "$APP_RESOURCES_DIR/AppIcon.icns"
 
 plutil -replace CFBundleIdentifier -string "$BUNDLE_IDENTIFIER" "$CONTENTS_DIR/Info.plist"
 plutil -replace CFBundleShortVersionString -string "$MARKETING_VERSION" "$CONTENTS_DIR/Info.plist"
